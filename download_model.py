@@ -5,13 +5,14 @@ from pathlib import Path
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
-def download_model(model_name: str, cache_dir: str) -> None:
-    cache_path = Path(cache_dir)
-    cache_path.mkdir(parents=True, exist_ok=True)
-
-    # Download tokenizer and model weights into cache_dir
-    AutoTokenizer.from_pretrained(model_name, cache_dir=str(cache_path))
-    AutoModelForCausalLM.from_pretrained(model_name, cache_dir=str(cache_path))
+def download_model(model_name: str, cache_dir: str | None, force: bool = False) -> None:
+    # When cache_dir is None, Hugging Face uses the default user cache (~/.cache/huggingface)
+    kwargs = {"cache_dir": cache_dir} if cache_dir else {}
+    if force:
+        kwargs["force_download"] = True
+        kwargs["local_files_only"] = False
+    AutoTokenizer.from_pretrained(model_name, **kwargs)
+    AutoModelForCausalLM.from_pretrained(model_name, **kwargs)
 
 
 def main() -> None:
@@ -23,13 +24,19 @@ def main() -> None:
     )
     parser.add_argument(
         "--dir",
-        default=os.environ.get("EKKO_MODELS_DIR", "./models"),
-        help="Target directory to store model files (default: ./models)",
+        default=os.environ.get("EKKO_MODELS_DIR", None),
+        help="Optional cache directory to store model files (default: HF user cache)",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force re-download even if files exist",
     )
     args = parser.parse_args()
 
-    print(f"Downloading model '{args.model}' to '{args.dir}' ...")
-    download_model(args.model, args.dir)
+    where = args.dir if args.dir else "<hf default cache>"
+    print(f"Downloading model '{args.model}' to {where} (force={args.force}) ...")
+    download_model(args.model, args.dir, force=args.force)
     print("Download completed.")
 
 
